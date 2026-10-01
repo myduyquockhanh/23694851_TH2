@@ -8,14 +8,19 @@ import {
   ActivityIndicator,
   RefreshControl,
   Vibration,
+  ScrollView,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { fetchProducts } from '@services/productApi';
-import type { FakeProduct } from '@services/productApi';
+import {
+  fetchProducts,
+  filterByCategory,
+  CATEGORY_LABELS,
+} from '@services/productApi';
+import type { FakeProduct, ProductCategory } from '@services/productApi';
 import { useCartStore } from '@stores/cartStore';
 import ProductCard from '@components/ProductCard';
 import Watermark from '@components/Watermark';
@@ -26,9 +31,20 @@ import type { ShopStackParamList } from '@navigation/ShopStack';
 
 type HomeNavProp = NativeStackNavigationProp<ShopStackParamList, 'Home'>;
 
+const ALL_CATEGORIES: ProductCategory[] = ['ALL', 'FOOD', 'DRINK', 'STATIONERY'];
+
+// Category filter tab color map
+const CATEGORY_ACTIVE_COLOR: Record<ProductCategory, string> = {
+  ALL: COLORS.primary,
+  FOOD: '#F97316',
+  DRINK: '#3B82F6',
+  STATIONERY: '#8B5CF6',
+};
+
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeNavProp>();
   const [search, setSearch] = useState('');
+  const [activeCategory, setActiveCategory] = useState<ProductCategory>('ALL');
   const debouncedSearch = useDebouncedValue(search);
 
   const addToCart = useCartStore((s) => s.add);
@@ -39,8 +55,9 @@ const HomeScreen: React.FC = () => {
     staleTime: STALE_TIME_MS,
   });
 
-  // Filter after debounce
-  const filtered: FakeProduct[] = (data ?? []).filter((p) =>
+  // 1. Filter by category, then by search (debounced)
+  const categoryFiltered = filterByCategory(data ?? [], activeCategory);
+  const filtered: FakeProduct[] = categoryFiltered.filter((p) =>
     p.title.toLowerCase().includes(debouncedSearch.toLowerCase()),
   );
 
@@ -62,7 +79,7 @@ const HomeScreen: React.FC = () => {
         <Text style={styles.errorText}>Có lỗi xảy ra!</Text>
         <Text style={styles.mssvText}>MSSV: {MSSV}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={() => refetch()}>
-          <Text style={styles.retryLabel}>Try Again</Text>
+          <Text style={styles.retryLabel}>Thử lại</Text>
         </TouchableOpacity>
         <Watermark />
       </View>
@@ -103,6 +120,35 @@ const HomeScreen: React.FC = () => {
         />
       </View>
 
+      {/* Category filter tabs */}
+      <View style={styles.tabsContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabsScroll}
+        >
+          {ALL_CATEGORIES.map((cat) => {
+            const isActive = activeCategory === cat;
+            const activeColor = CATEGORY_ACTIVE_COLOR[cat];
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[
+                  styles.tab,
+                  isActive && { backgroundColor: activeColor, borderColor: activeColor },
+                ]}
+                onPress={() => setActiveCategory(cat)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                  {CATEGORY_LABELS[cat]}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       {/* 2-column FlashList – NOT inside a ScrollView */}
       <FlashList
         data={filtered}
@@ -126,7 +172,11 @@ const HomeScreen: React.FC = () => {
         }
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>Không tìm thấy sản phẩm nào</Text>
+            <Text style={styles.emptyText}>
+              {search.length > 0
+                ? `Không tìm thấy "${search}"`
+                : 'Không có sản phẩm nào'}
+            </Text>
           </View>
         }
       />
@@ -161,7 +211,8 @@ const styles = StyleSheet.create({
   },
   searchWrap: {
     paddingHorizontal: SPACING.base,
-    paddingVertical: SPACING.sm,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.xs,
     backgroundColor: COLORS.primary,
   },
   searchInput: {
@@ -171,6 +222,31 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     fontSize: FONT_SIZE.base,
     color: COLORS.text,
+  },
+  tabsContainer: {
+    backgroundColor: COLORS.primary,
+    paddingBottom: SPACING.sm,
+  },
+  tabsScroll: {
+    paddingHorizontal: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  tab: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 2,
+    borderRadius: RADIUS.full,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: 'transparent',
+  },
+  tabText: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: FONT_SIZE.sm,
+    fontWeight: '600',
+  },
+  tabTextActive: {
+    color: '#fff',
+    fontWeight: '800',
   },
   listContent: {
     padding: SPACING.sm,

@@ -85,7 +85,9 @@ const DetailScreen: React.FC = () => {
 
         {/* Info card */}
         <View style={styles.infoCard}>
-          <Text style={styles.category}>{product.category.toUpperCase()}</Text>
+          <Text style={styles.category}>
+            {(product as any).categoryLabel ?? product.category}
+          </Text>
           <Text style={styles.title}>{product.title}</Text>
 
           <View style={styles.ratingRow}>

@@ -16,9 +16,17 @@ interface ProductCardProps {
   onAdd: () => void;
 }
 
+// Category badge color map
+const CATEGORY_COLOR: Record<string, string> = {
+  FOOD: '#F97316',
+  DRINK: '#3B82F6',
+  STATIONERY: '#8B5CF6',
+};
+
 const ProductCard: React.FC<ProductCardProps> = ({ item, onPress, onAdd }) => {
-  // Price calculated from API price × PRICE_MULTIPLIER (no hard-coding)
+  // Price: item.price = priceVND / PRICE_MULTIPLIER, so multiply back to get VND
   const priceVND = Math.round(item.price * PRICE_MULTIPLIER);
+  const badgeColor = CATEGORY_COLOR[item.category] ?? COLORS.primary;
 
   return (
     <TouchableOpacity
@@ -27,7 +35,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ item, onPress, onAdd }) => {
       onPress={onPress}
       activeOpacity={0.85}
     >
-      <Image source={{ uri: item.image }} style={styles.image} resizeMode="contain" />
+      <Image source={{ uri: item.image }} style={styles.image} resizeMode="cover" />
+
+      {/* Category badge */}
+      <View style={[styles.badge, { backgroundColor: badgeColor }]}>
+        <Text style={styles.badgeText}>
+          {(item as any).categoryLabel ?? item.category}
+        </Text>
+      </View>
+
       <View style={styles.info}>
         <Text style={styles.title} numberOfLines={2}>
           {item.title}
@@ -62,6 +78,19 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 130,
     backgroundColor: '#F9FAFB',
+  },
+  badge: {
+    position: 'absolute',
+    top: SPACING.xs,
+    left: SPACING.xs,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.xs + 2,
+    paddingVertical: 2,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: FONT_SIZE.xs,
+    fontWeight: '700',
   },
   info: {
     padding: SPACING.sm,
