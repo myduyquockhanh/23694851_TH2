@@ -1,97 +1,170 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# KTXGo – Ứng dụng giao hàng ký túc xá
 
-# Getting Started
+## Thông tin sinh viên
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+| Trường         | Giá trị                        |
+|----------------|-------------------------------|
+| **Họ tên**     | MY DUY QUOC KHANH              |
+| **MSSV**       | 23694851                       |
+| **Phòng**      | P.151                          |
+| **GitHub**     | https://github.com/[username]/23694851_TH2 |
+| **Exam Stamp** | TH2\|23694851                  |
 
-## Step 1: Start Metro
+## Variant Configuration
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+| Tham số            | Giá trị       |
+|--------------------|---------------|
+| Last digit         | 1             |
+| Student Seed       | 851           |
+| DEBOUNCE_MS        | 400 ms        |
+| STALE_TIME_MS      | 21000 ms      |
+| PRICE_MULTIPLIER   | 20500         |
+| BASE_SHIP_FEE      | 9000 ₫        |
+| ROOM_LABEL         | P.151         |
+| BANNER_IMAGE_ID    | 301           |
+| watermarkAtTop     | false (Bottom)|
+| authField          | phone         |
+| tabOrder           | shopFirst     |
+| hapticOnAdd        | selection     |
+| shipFormula        | B             |
+| detailPresentation | card          |
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+---
 
-```sh
-# Using npm
+## Mục đích dự án
+
+KTXGo là ứng dụng giao hàng ký túc xá cho phép sinh viên đặt thực phẩm, đồ uống và văn phòng phẩm được giao thẳng đến phòng của họ.
+
+---
+
+## Công nghệ sử dụng
+
+- **React Native CLI** + **TypeScript**
+- **React Navigation v7** (Native Stack + Bottom Tabs)
+- **Zustand** + **Zustand Persist** + **AsyncStorage** (quản lý state)
+- **TanStack React Query v5** + **Axios** (tải dữ liệu)
+- **@shopify/flash-list** (danh sách sản phẩm 2 cột)
+- **expo-haptics** (haptic feedback)
+- **expo-location** (GPS + quyền vị trí)
+- **react-native-safe-area-context**
+- **babel-plugin-module-resolver** (path aliases)
+
+---
+
+## Cài đặt
+
+```bash
+# Clone repository
+git clone https://github.com/[username]/23694851_TH2.git
+cd KTXGo_23694851
+
+# Cài đặt dependencies
+npm install
+
+# Android (cần Android Studio + emulator hoặc thiết bị thật)
+npx react-native run-android
+```
+
+---
+
+## Chạy ứng dụng (Android)
+
+```bash
+# Terminal 1 – Metro bundler
 npm start
 
-# OR using Yarn
-yarn start
+# Terminal 2 – Build & install
+npx react-native run-android
 ```
 
-## Step 2: Build and run your app
+---
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+## Kiến trúc Navigation
 
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+```
+App
+└── SafeAreaProvider
+    └── QueryClientProvider
+        └── NavigationContainer
+            └── RootNavigator (watches authStore.token)
+                ├── AuthStack       → LoginScreen (phone input)
+                └── MainTabs        (Shop → Cart → Me)
+                    ├── ShopStack
+                    │   ├── HomeScreen  (FlashList 2 cột)
+                    │   └── DetailScreen (card presentation, id only)
+                    ├── CartScreen
+                    └── MeScreen
 ```
 
-### iOS
+---
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## API
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+- **Endpoint**: `https://fakestoreapi.com/products?limit=12`
+- **Axios instance**: `src/services/apiClient.ts`
+  - Interceptor thêm header `X-Student-Id: 23694851`
+- **API functions**: `src/services/productApi.ts`
+  - `fetchProducts()` – lấy danh sách 12 sản phẩm
+  - `fetchProductById(id)` – lấy chi tiết 1 sản phẩm
 
-```sh
-bundle install
+---
+
+## Zustand Cart
+
+- **Store**: `src/stores/cartStore.ts`
+- **Persist key**: `ktxgo-cart-23694851`
+- **Các action**: `add()`, `remove()`, `changeQty()`, `totalQuantity()`, `totalAmount()`, `shippingFee()`
+- Cart dùng chung giữa HomeScreen, DetailScreen, CartScreen
+
+---
+
+## React Query
+
+- `staleTime: 21000` ms (STALE_TIME_MS từ student.ts)
+- Xử lý đầy đủ 3 trạng thái: `pending`, `error`, `data`
+- Pull-to-refresh qua `refetch()`
+- Error state hiển thị `MSSV: 23694851` + nút `Try Again`
+
+---
+
+## Vị trí & Phí vận chuyển
+
+### Quyền vị trí
+
+| Trạng thái | Xử lý |
+|-----------|-------|
+| `granted`  | Lấy GPS, tính khoảng cách |
+| `denied`   | Hiển thị thông báo |
+| `blocked`  | Gọi `Linking.openSettings()` |
+
+### Công thức Haversine
+
+```ts
+const R = 6371; // km
+const dLat = toRad(lat2 - lat1);
+const dLon = toRad(lon2 - lon1);
+const a = sin²(dLat/2) + cos(lat1)*cos(lat2)*sin²(dLon/2);
+const km = R * 2 * atan2(√a, √(1-a));
 ```
 
-Then, and every time you update your native dependencies, run:
+### Phí vận chuyển – Formula B
 
-```sh
-bundle exec pod install
+```ts
+shippingFee = BASE_SHIP_FEE + Math.round(km × 1500) + 2000
+            = 9000 + Math.round(km × 1500) + 2000
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+---
 
-```sh
-# Using npm
-npm run ios
+## Cấu trúc thư mục
 
-# OR using Yarn
-yarn ios
 ```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+src/
+├── constants/   student.ts · theme.ts
+├── hooks/       useDebouncedValue.ts · useCampusLocation.ts
+├── services/    apiClient.ts · productApi.ts
+├── stores/      authStore.ts · cartStore.ts
+├── navigation/  RootNavigator.tsx · AuthStack.tsx · MainTabs.tsx · ShopStack.tsx
+├── components/  ProductCard.tsx · Watermark.tsx
+└── screens/     LoginScreen.tsx · HomeScreen.tsx · DetailScreen.tsx · CartScreen.tsx · MeScreen.tsx
+```
