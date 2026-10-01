@@ -7,12 +7,12 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Vibration,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
-import * as Haptics from 'expo-haptics';
 
 import { fetchProductById } from '@services/productApi';
 import { useCartStore } from '@stores/cartStore';
@@ -45,8 +45,8 @@ const DetailScreen: React.FC = () => {
       image: product.image,
       price: Math.round(product.price * PRICE_MULTIPLIER),
     });
-    // Haptic: selection (LAST_DIGIT = 1)
-    Haptics.selectionAsync();
+    // Haptic: short vibration feedback
+    Vibration.vibrate(30);
     navigation.goBack();
   };
 

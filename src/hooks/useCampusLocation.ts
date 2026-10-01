@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Linking } from 'react-native';
-import * as Location from 'expo-location';
+import { Linking, PermissionsAndroid, Platform } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import { useCartStore } from '@stores/cartStore';
 
 // KTX / Campus destination coordinates
@@ -35,6 +35,25 @@ interface UseCampusLocationReturn {
   requestLocation: () => Promise<void>;
 }
 
+// ── Android permission helper ─────────────────────────────────
+async function requestAndroidPermission(): Promise<boolean> {
+  try {
+    const result = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      {
+        title: 'Quyền vị trí',
+        message: 'KTXGo cần quyền vị trí để tính phí giao hàng.',
+        buttonNeutral: 'Hỏi sau',
+        buttonNegative: 'Từ chối',
+        buttonPositive: 'Cho phép',
+      },
+    );
+    return result === PermissionsAndroid.RESULTS.GRANTED;
+  } catch {
+    return false;
+  }
+}
+
 // ── Hook ──────────────────────────────────────────────────────
 export function useCampusLocation(): UseCampusLocationReturn {
   const [status, setStatus] = useState<LocationStatus>('idle');
@@ -45,47 +64,38 @@ export function useCampusLocation(): UseCampusLocationReturn {
     setStatus('loading');
 
     try {
-      // 1. Check existing permission
-      const { status: existing } = await Location.getForegroundPermissionsAsync();
-
-      if (existing === 'denied') {
-        // On some platforms 'denied' means permanently blocked
-        // Try to request; if it fails we open settings
-        const { status: requested } = await Location.requestForegroundPermissionsAsync();
-        if (requested !== 'granted') {
-          // Treat as blocked – open settings
-          setStatus('blocked');
-          Linking.openSettings();
-          return;
-        }
-      } else if (existing !== 'granted') {
-        // 'undetermined' – request normally
-        const { status: requested } = await Location.requestForegroundPermissionsAsync();
-        if (requested === 'granted') {
-          // continue below
-        } else {
-          // Check if it can be asked again
-          const { canAskAgain } = await Location.getForegroundPermissionsAsync();
-          if (!canAskAgain) {
+      // 1. Request permission on Android; iOS uses Info.plist
+      if (Platform.OS === 'android') {
+        const granted = await requestAndroidPermission();
+        if (!granted) {
+          // Check if blocked (never ask again)
+          const check = await PermissionsAndroid.check(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          );
+          if (!check) {
             setStatus('blocked');
-            Linking.openSettings(); // Blocked → open settings
-            return;
+            Linking.openSettings();
+          } else {
+            setStatus('denied');
           }
-          setStatus('denied');
           return;
         }
       }
 
-      // 2. Permission granted – get position
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-
-      const { latitude, longitude } = position.coords;
-      const distance = haversineKm(latitude, longitude, CAMPUS_LAT, CAMPUS_LNG);
-      setKm(distance);
-      setShippingKm(distance);
-      setStatus('granted');
+      // 2. Permission granted – get current position
+      Geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const distance = haversineKm(latitude, longitude, CAMPUS_LAT, CAMPUS_LNG);
+          setKm(distance);
+          setShippingKm(distance);
+          setStatus('granted');
+        },
+        (_error) => {
+          setStatus('denied');
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+      );
     } catch {
       setStatus('denied');
     }

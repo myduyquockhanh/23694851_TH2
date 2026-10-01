@@ -7,12 +7,12 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  Vibration,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import * as Haptics from 'expo-haptics';
 
 import { fetchProducts } from '@services/productApi';
 import type { FakeProduct } from '@services/productApi';
@@ -51,8 +51,8 @@ const HomeScreen: React.FC = () => {
       image: item.image,
       price: Math.round(item.price * PRICE_MULTIPLIER),
     });
-    // Haptic: selection feedback (LAST_DIGIT = 1)
-    Haptics.selectionAsync();
+    // Haptic: short vibration feedback
+    Vibration.vibrate(30);
   };
 
   // ── Error state ───────────────────────────────────────────────
